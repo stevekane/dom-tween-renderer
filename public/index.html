@@ -1,0 +1,132 @@
+<!doctype html>
+<head>
+  <title>Mutate da dom</title>
+</head>
+
+<body>
+  <input id="slider" type="range" value=0 min=0 max=15 />
+  <div id="stage" style="position: relative; height: 600px; width: 800px;"></div>
+  <button id="toggle">Toggle</button>
+
+  <script>
+    var T_MAX = 15
+    var FPS = 24
+    var TICK_RATE_MS = 1000 / FPS
+
+    var timelines = {
+      scale: [{
+        time: 0,
+        x: 0.5,
+        y: 0.8
+      },{
+        time: 4,
+        x: 0.1,
+        y: 0.1 
+      },{
+        time: 15,
+        x: 2.0,
+        y: 1.5
+      }],
+      position: [{
+        time: 0, 
+        x: 0,
+        y: 0
+      },{
+        time: 5, 
+        x: 350,
+        y: 300 
+      },{
+        time: 12, 
+        x: 700,
+        y: 55
+      }] 
+    }
+
+    function findBounds (timeline, t) {
+      var i = -1
+      var left
+      var right
+
+      if (timeline[0] > t) throw new Error('all timelines must have keyframe at t=0')
+
+      //TODO: weird logic here...try again to simplify?
+      while (++i < timeline.length - 1) {
+        left = timeline[i]
+        right = timeline[i+1]
+
+        if (right && right.time <= t) continue
+        else                          return { left: left, right: right }
+      }
+      return { left: timeline[timeline.length - 1] }
+    }
+
+    function lerp (start, end, startTime, endTime, time) {
+      return start + (end - start) * (time - startTime) / (endTime - startTime)
+    }
+
+    function renderNode (timelines, t) {
+      var width = 30
+      var height = 40
+      var positions = timelines.position 
+      var scales = timelines.scale 
+      var left
+      var right
+      var pbnds = findBounds(positions, t)
+      var sbnds = findBounds(scales, t)
+
+      var el = document.createElement('div')
+
+      el.style.backgroundColor = 'blue'
+      el.style.position = 'absolute'
+      el.style.left = (pbnds.right
+        ? lerp(pbnds.left.x, pbnds.right.x, pbnds.left.time, pbnds.right.time, t)
+        : pbnds.left.x) + 'px'
+      el.style.top = (pbnds.right
+        ? lerp(pbnds.left.y, pbnds.right.y, pbnds.left.time, pbnds.right.time, t)
+        : pbnds.left.y) + 'px'
+      el.style.width = (sbnds.right
+        ? lerp(sbnds.left.x, sbnds.right.x, sbnds.left.time, sbnds.right.time, t)
+        : sbnds.left.x) * width + 'px'
+      el.style.height = (sbnds.right
+        ? lerp(sbnds.left.y, sbnds.right.y, sbnds.left.time, sbnds.right.time, t)
+        : sbnds.left.y) * height + 'px'
+
+      return el
+    }
+
+    function clearChildren (element) {
+      while (element.firstChild) element.removeChild(element.firstChild)
+    }
+
+    function render () {
+      var node = renderNode(timelines, t)
+
+      clearChildren(stage)
+      if (node) stage.appendChild(node)
+      requestAnimationFrame(render) 
+    }
+
+    function update () {
+      if (!playing) return
+
+      t = t >= T_MAX ? 0 : t + 1
+      slider.value = t
+    }
+
+    var slider = document.getElementById('slider')
+    var stage = document.getElementById('stage')
+    var toggle = document.getElementById('toggle')
+    var t = parseInt(slider.value)
+    var playing = false
+
+    slider.max = T_MAX
+    slider.addEventListener('input', function (e) {
+      t = parseInt(e.srcElement.value)
+    })
+    toggle.addEventListener('click', function () {
+      playing = !playing 
+    })
+    requestAnimationFrame(render)
+    setInterval(update, TICK_RATE_MS)
+  </script>
+</body>
